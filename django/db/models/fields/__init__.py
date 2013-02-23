@@ -1036,6 +1036,10 @@ class VersionField(IntegerField):
     empty_strings_allowed = False
     description = _("Version")
 
+    def __init__(self, *args, **kwargs):
+        kwargs['default'] = 1
+        Field.__init__(self, *args, **kwargs)
+
     def get_internal_type(self):
         return "IntegerField"
 
