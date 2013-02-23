@@ -33,7 +33,7 @@ from django.core.validators import EMPTY_VALUES
 
 
 __all__ = (
-    'Field', 'CharField', 'IntegerField',
+    'Field', 'CharField', 'IntegerField', 'VersionField',
     'DateField', 'TimeField', 'DateTimeField', 'TimeField',
     'RegexField', 'EmailField', 'FileField', 'ImageField', 'URLField',
     'BooleanField', 'NullBooleanField', 'ChoiceField', 'MultipleChoiceField',
@@ -235,6 +235,9 @@ class IntegerField(Field):
         except (ValueError, TypeError):
             raise ValidationError(self.error_messages['invalid'])
         return value
+
+class VersionField(IntegerField):
+    widget = HiddenInput
 
 class FloatField(IntegerField):
     default_error_messages = {

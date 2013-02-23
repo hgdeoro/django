@@ -1026,6 +1026,18 @@ class BigIntegerField(IntegerField):
         defaults.update(kwargs)
         return super(BigIntegerField, self).formfield(**defaults)
 
+class VersionField(IntegerField):
+    empty_strings_allowed = False
+    description = _("Version")
+
+    def get_internal_type(self):
+        return "IntegerField"
+
+    def formfield(self, **kwargs):
+        defaults = {'form_class': forms.VersionField}
+        defaults.update(kwargs)
+        return super(VersionField, self).formfield(**defaults)
+
 class IPAddressField(Field):
     empty_strings_allowed = False
     description = _("IPv4 address")
