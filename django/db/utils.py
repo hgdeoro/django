@@ -20,6 +20,8 @@ class DatabaseError(Exception):
 class IntegrityError(DatabaseError):
     pass
 
+class OptimisticLockingError(IntegrityError):
+    pass
 
 def load_backend(backend_name):
     # Look for a fully qualified database backend name
