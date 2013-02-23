@@ -35,7 +35,7 @@ from django.core.validators import EMPTY_VALUES
 
 
 __all__ = (
-    'Field', 'CharField', 'IntegerField',
+    'Field', 'CharField', 'IntegerField', 'VersionField',
     'DateField', 'TimeField', 'DateTimeField', 'TimeField',
     'RegexField', 'EmailField', 'FileField', 'ImageField', 'URLField',
     'BooleanField', 'NullBooleanField', 'ChoiceField', 'MultipleChoiceField',
@@ -266,6 +266,10 @@ class IntegerField(Field):
             if self.max_value is not None:
                 attrs['max'] = self.max_value
         return attrs
+
+
+class VersionField(IntegerField):
+    widget = HiddenInput
 
 
 class FloatField(IntegerField):
