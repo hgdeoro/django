@@ -26,6 +26,7 @@ from django.utils.functional import curry
 from django.utils.encoding import force_str, force_text
 from django.utils import six
 from django.utils.text import get_text_list, capfirst
+from django.db.utils import OptimisticLockingError
 
 
 def subclass_exception(name, parents, module, attached_to=None):
@@ -606,19 +607,32 @@ class Model(six.with_metaclass(ModelBase)):
             pk_set = pk_val is not None
             record_exists = True
             manager = cls._base_manager
+            # TODO: get the attribute name from the Meta class, or maybe
+            #  look for the attribute of type 'VersionField'
+            optimistic_locking_attribute = 'version'
+            optimistic_locking_version = getattr(self, optimistic_locking_attribute, None)
             if pk_set:
                 # Determine if we should do an update (pk already exists, forced update,
                 # no force_insert)
                 if ((force_update or update_fields) or (not force_insert and
                         manager.using(using).filter(pk=pk_val).exists())):
-                    if force_update or non_pks:
+                        # Update version BEFORE generating the 'values' tuple
+                        if optimistic_locking_version:
+                            setattr(self, optimistic_locking_attribute, optimistic_locking_version + 1)
                         values = [(f, None, (raw and getattr(self, f.attname) or f.pre_save(self, False))) for f in non_pks]
                         if values:
-                            rows = manager.using(using).filter(pk=pk_val)._update(values)
+                            query = manager.using(using).filter(pk=pk_val)
+                            if optimistic_locking_version:
+                                query = query.filter(**{optimistic_locking_attribute: optimistic_locking_version})
+                            rows = query._update(values)
                             if force_update and not rows:
                                 raise DatabaseError("Forced update did not affect any rows.")
                             if update_fields and not rows:
                                 raise DatabaseError("Save with update_fields did not affect any rows.")
+                            # TODO: confirm that this check should be the last one
+                            # TODO: enhance error message
+                            if optimistic_locking_version and not rows:
+                                raise OptimisticLockingError("Old version of model detected.")
                 else:
                     record_exists = False
             if not pk_set or not record_exists:
