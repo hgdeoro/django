@@ -1,5 +1,38 @@
+"""
+# <pcassandra>
+#   This is a pcassandra file, based on Django's code, so, PLEASE, modify this file ONLY from the Django fork,
+#   and NEVER directly from pcassandra. This way is much easier to be up-to-date with modifications on Django.
+# </pcassandra>
+
+Implements a Django model, with the API of the standard User,
+but contains just the 'username' field. This instance is
+persisted in the traditional database configured in your project.
+
+It acts as a proxy to the real user, stored in Cassadra.
+
+It's required because the way Django is designed, and it's
+the recommended way to handle this situation:
+
+    <<
+    The Django admin system is tightly coupled to the Django User
+    object described at the beginning of this document. For now,
+    the best way to deal with this is to create a Django User object
+    for each user that exists for your backend (e.g., in your LDAP
+    directory, your external SQL database, etc.) You can either write
+    a script to do this in advance, or your authenticate method can
+    do it the first time a user logs in.
+    >>
+
+    See https://docs.djangoproject.com/en/1.8/topics/auth/customizing/
+
+The first time the user is authenticated, the 'DjangoUserProxy' instance
+is created if not exists.
+
+"""
+
 from __future__ import unicode_literals
 
+from django import VERSION
 from django.contrib import auth
 from django.contrib.auth.hashers import (
     check_password, is_password_usable, make_password,
@@ -16,192 +49,210 @@ from django.utils.crypto import get_random_string, salted_hmac
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 
+from cassandra.cqlengine import columns as cassandra_columns
+from cassandra.cqlengine import models as cassandra_models
 
-def update_last_login(sender, user, **kwargs):
-    """
-    A signal receiver which updates the last_login date for
-    the user logging in.
-    """
-    user.last_login = timezone.now()
-    user.save(update_fields=['last_login'])
-user_logged_in.connect(update_last_login)
+assert VERSION[0:2] == (1, 8), "Django 1.8 required. Current version: {}".format(VERSION[0:2])
 
 
-class PermissionManager(models.Manager):
-    use_in_migrations = True
+# TODO: @pcassandra@
+# def update_last_login(sender, user, **kwargs):
+#     """
+#     A signal receiver which updates the last_login date for
+#     the user logging in.
+#     """
+#     user.last_login = timezone.now()
+#     user.save(update_fields=['last_login'])
+# user_logged_in.connect(update_last_login)
 
-    def get_by_natural_key(self, codename, app_label, model):
-        return self.get(
-            codename=codename,
-            content_type=ContentType.objects.db_manager(self.db).get_by_natural_key(app_label, model),
-        )
+
+# TODO: @pcassandra@
+# class PermissionManager(models.Manager):
+#     use_in_migrations = True
+#
+#     def get_by_natural_key(self, codename, app_label, model):
+#         return self.get(
+#             codename=codename,
+#             content_type=ContentType.objects.db_manager(self.db).get_by_natural_key(app_label, model),
+#         )
+
+
+# TODO: @pcassandra@
+# @python_2_unicode_compatible
+# class Permission(models.Model):
+#     """
+#     The permissions system provides a way to assign permissions to specific
+#     users and groups of users.
+#
+#     The permission system is used by the Django admin site, but may also be
+#     useful in your own code. The Django admin site uses permissions as follows:
+#
+#         - The "add" permission limits the user's ability to view the "add" form
+#           and add an object.
+#         - The "change" permission limits a user's ability to view the change
+#           list, view the "change" form and change an object.
+#         - The "delete" permission limits the ability to delete an object.
+#
+#     Permissions are set globally per type of object, not per specific object
+#     instance. It is possible to say "Mary may change news stories," but it's
+#     not currently possible to say "Mary may change news stories, but only the
+#     ones she created herself" or "Mary may only change news stories that have a
+#     certain status or publication date."
+#
+#     Three basic permissions -- add, change and delete -- are automatically
+#     created for each Django model.
+#     """
+#     name = models.CharField(_('name'), max_length=255)
+#     content_type = models.ForeignKey(ContentType)
+#     codename = models.CharField(_('codename'), max_length=100)
+#     objects = PermissionManager()
+#
+#     class Meta:
+#         verbose_name = _('permission')
+#         verbose_name_plural = _('permissions')
+#         unique_together = (('content_type', 'codename'),)
+#         ordering = ('content_type__app_label', 'content_type__model',
+#                     'codename')
+#
+#     def __str__(self):
+#         return "%s | %s | %s" % (
+#             six.text_type(self.content_type.app_label),
+#             six.text_type(self.content_type),
+#             six.text_type(self.name))
+#
+#     def natural_key(self):
+#         return (self.codename,) + self.content_type.natural_key()
+#     natural_key.dependencies = ['contenttypes.contenttype']
+
+
+# TODO: @pcassandra@
+# class GroupManager(models.Manager):
+#     """
+#     The manager for the auth's Group model.
+#     """
+#     use_in_migrations = True
+#
+#     def get_by_natural_key(self, name):
+#         return self.get(name=name)
+
+
+# TODO: @pcassandra@
+# @python_2_unicode_compatible
+# class Group(models.Model):
+#     """
+#     Groups are a generic way of categorizing users to apply permissions, or
+#     some other label, to those users. A user can belong to any number of
+#     groups.
+#
+#     A user in a group automatically has all the permissions granted to that
+#     group. For example, if the group Site editors has the permission
+#     can_edit_home_page, any user in that group will have that permission.
+#
+#     Beyond permissions, groups are a convenient way to categorize users to
+#     apply some label, or extended functionality, to them. For example, you
+#     could create a group 'Special users', and you could write code that would
+#     do special things to those users -- such as giving them access to a
+#     members-only portion of your site, or sending them members-only email
+#     messages.
+#     """
+#     name = models.CharField(_('name'), max_length=80, unique=True)
+#     permissions = models.ManyToManyField(Permission,
+#         verbose_name=_('permissions'), blank=True)
+#
+#     objects = GroupManager()
+#
+#     class Meta:
+#         verbose_name = _('group')
+#         verbose_name_plural = _('groups')
+#
+#     def __str__(self):
+#         return self.name
+#
+#     def natural_key(self):
+#         return (self.name,)
+
+
+# TODO: @pcassandra@
+# class BaseUserManager(models.Manager):
+#
+#     @classmethod
+#     def normalize_email(cls, email):
+#         """
+#         Normalize the address by lowercasing the domain part of the email
+#         address.
+#         """
+#         email = email or ''
+#         try:
+#             email_name, domain_part = email.strip().rsplit('@', 1)
+#         except ValueError:
+#             pass
+#         else:
+#             email = '@'.join([email_name, domain_part.lower()])
+#         return email
+#
+#     def make_random_password(self, length=10,
+#                              allowed_chars='abcdefghjkmnpqrstuvwxyz'
+#                                            'ABCDEFGHJKLMNPQRSTUVWXYZ'
+#                                            '23456789'):
+#         """
+#         Generates a random password with the given length and given
+#         allowed_chars. Note that the default value of allowed_chars does not
+#         have "I" or "O" or letters and digits that look similar -- just to
+#         avoid confusion.
+#         """
+#         return get_random_string(length, allowed_chars)
+#
+#     def get_by_natural_key(self, username):
+#         return self.get(**{self.model.USERNAME_FIELD: username})
+
+
+# TODO: @pcassandra@
+# class UserManager(BaseUserManager):
+#     use_in_migrations = True
+#
+#     def _create_user(self, username, email, password,
+#                      is_staff, is_superuser, **extra_fields):
+#         """
+#         Creates and saves a User with the given username, email and password.
+#         """
+#         now = timezone.now()
+#         if not username:
+#             raise ValueError('The given username must be set')
+#         email = self.normalize_email(email)
+#         user = self.model(username=username, email=email,
+#                           is_staff=is_staff, is_active=True,
+#                           is_superuser=is_superuser,
+#                           date_joined=now, **extra_fields)
+#         user.set_password(password)
+#         user.save(using=self._db)
+#         return user
+#
+#     def create_user(self, username, email=None, password=None, **extra_fields):
+#         return self._create_user(username, email, password, False, False,
+#                                  **extra_fields)
+#
+#     def create_superuser(self, username, email, password, **extra_fields):
+#         return self._create_user(username, email, password, True, True,
+#                                  **extra_fields)
 
 
 @python_2_unicode_compatible
-class Permission(models.Model):
-    """
-    The permissions system provides a way to assign permissions to specific
-    users and groups of users.
+class AbstractBaseUser(cassandra_models.Model):
 
-    The permission system is used by the Django admin site, but may also be
-    useful in your own code. The Django admin site uses permissions as follows:
+    __abstract__ = True   # cqlengine
 
-        - The "add" permission limits the user's ability to view the "add" form
-          and add an object.
-        - The "change" permission limits a user's ability to view the change
-          list, view the "change" form and change an object.
-        - The "delete" permission limits the ability to delete an object.
+    # password = models.CharField(_('password'), max_length=128)
+    password = cassandra_columns.Text()
 
-    Permissions are set globally per type of object, not per specific object
-    instance. It is possible to say "Mary may change news stories," but it's
-    not currently possible to say "Mary may change news stories, but only the
-    ones she created herself" or "Mary may only change news stories that have a
-    certain status or publication date."
-
-    Three basic permissions -- add, change and delete -- are automatically
-    created for each Django model.
-    """
-    name = models.CharField(_('name'), max_length=255)
-    content_type = models.ForeignKey(ContentType)
-    codename = models.CharField(_('codename'), max_length=100)
-    objects = PermissionManager()
-
-    class Meta:
-        verbose_name = _('permission')
-        verbose_name_plural = _('permissions')
-        unique_together = (('content_type', 'codename'),)
-        ordering = ('content_type__app_label', 'content_type__model',
-                    'codename')
-
-    def __str__(self):
-        return "%s | %s | %s" % (
-            six.text_type(self.content_type.app_label),
-            six.text_type(self.content_type),
-            six.text_type(self.name))
-
-    def natural_key(self):
-        return (self.codename,) + self.content_type.natural_key()
-    natural_key.dependencies = ['contenttypes.contenttype']
-
-
-class GroupManager(models.Manager):
-    """
-    The manager for the auth's Group model.
-    """
-    use_in_migrations = True
-
-    def get_by_natural_key(self, name):
-        return self.get(name=name)
-
-
-@python_2_unicode_compatible
-class Group(models.Model):
-    """
-    Groups are a generic way of categorizing users to apply permissions, or
-    some other label, to those users. A user can belong to any number of
-    groups.
-
-    A user in a group automatically has all the permissions granted to that
-    group. For example, if the group Site editors has the permission
-    can_edit_home_page, any user in that group will have that permission.
-
-    Beyond permissions, groups are a convenient way to categorize users to
-    apply some label, or extended functionality, to them. For example, you
-    could create a group 'Special users', and you could write code that would
-    do special things to those users -- such as giving them access to a
-    members-only portion of your site, or sending them members-only email
-    messages.
-    """
-    name = models.CharField(_('name'), max_length=80, unique=True)
-    permissions = models.ManyToManyField(Permission,
-        verbose_name=_('permissions'), blank=True)
-
-    objects = GroupManager()
-
-    class Meta:
-        verbose_name = _('group')
-        verbose_name_plural = _('groups')
-
-    def __str__(self):
-        return self.name
-
-    def natural_key(self):
-        return (self.name,)
-
-
-class BaseUserManager(models.Manager):
-
-    @classmethod
-    def normalize_email(cls, email):
-        """
-        Normalize the address by lowercasing the domain part of the email
-        address.
-        """
-        email = email or ''
-        try:
-            email_name, domain_part = email.strip().rsplit('@', 1)
-        except ValueError:
-            pass
-        else:
-            email = '@'.join([email_name, domain_part.lower()])
-        return email
-
-    def make_random_password(self, length=10,
-                             allowed_chars='abcdefghjkmnpqrstuvwxyz'
-                                           'ABCDEFGHJKLMNPQRSTUVWXYZ'
-                                           '23456789'):
-        """
-        Generates a random password with the given length and given
-        allowed_chars. Note that the default value of allowed_chars does not
-        have "I" or "O" or letters and digits that look similar -- just to
-        avoid confusion.
-        """
-        return get_random_string(length, allowed_chars)
-
-    def get_by_natural_key(self, username):
-        return self.get(**{self.model.USERNAME_FIELD: username})
-
-
-class UserManager(BaseUserManager):
-    use_in_migrations = True
-
-    def _create_user(self, username, email, password,
-                     is_staff, is_superuser, **extra_fields):
-        """
-        Creates and saves a User with the given username, email and password.
-        """
-        now = timezone.now()
-        if not username:
-            raise ValueError('The given username must be set')
-        email = self.normalize_email(email)
-        user = self.model(username=username, email=email,
-                          is_staff=is_staff, is_active=True,
-                          is_superuser=is_superuser,
-                          date_joined=now, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_user(self, username, email=None, password=None, **extra_fields):
-        return self._create_user(username, email, password, False, False,
-                                 **extra_fields)
-
-    def create_superuser(self, username, email, password, **extra_fields):
-        return self._create_user(username, email, password, True, True,
-                                 **extra_fields)
-
-
-@python_2_unicode_compatible
-class AbstractBaseUser(models.Model):
-    password = models.CharField(_('password'), max_length=128)
-    last_login = models.DateTimeField(_('last login'), blank=True, null=True)
+    # last_login = models.DateTimeField(_('last login'), blank=True, null=True)
+    last_login = cassandra_columns.DateTime()
 
     is_active = True
 
     REQUIRED_FIELDS = []
 
-    class Meta:
-        abstract = True
+    # class Meta:
+    #     abstract = True
 
     def get_username(self):
         "Return the identifying username for this User"
@@ -235,10 +286,13 @@ class AbstractBaseUser(models.Model):
         Returns a boolean of whether the raw_password was correct. Handles
         hashing formats behind the scenes.
         """
-        def setter(raw_password):
-            self.set_password(raw_password)
-            self.save(update_fields=["password"])
-        return check_password(raw_password, self.password, setter)
+        # FIXME: @pcassandra@ update password when `check_password` is called
+        # def setter(raw_password):
+        #     self.set_password(raw_password)
+        #     self.save(update_fields=["password"])
+        # return check_password(raw_password, self.password, setter)
+
+        return check_password(raw_password, self.password)
 
     def set_unusable_password(self):
         # Sets a value that will never be a valid hash
@@ -261,65 +315,78 @@ class AbstractBaseUser(models.Model):
         return salted_hmac(key_salt, self.password).hexdigest()
 
 
-# A few helper functions for common logic between User and AnonymousUser.
-def _user_get_all_permissions(user, obj):
-    permissions = set()
-    for backend in auth.get_backends():
-        if hasattr(backend, "get_all_permissions"):
-            permissions.update(backend.get_all_permissions(user, obj))
-    return permissions
+# TODO: @pcassandra@
+# # A few helper functions for common logic between User and AnonymousUser.
+# def _user_get_all_permissions(user, obj):
+#     permissions = set()
+#     for backend in auth.get_backends():
+#         if hasattr(backend, "get_all_permissions"):
+#             permissions.update(backend.get_all_permissions(user, obj))
+#     return permissions
 
 
-def _user_has_perm(user, perm, obj):
-    """
-    A backend can raise `PermissionDenied` to short-circuit permission checking.
-    """
-    for backend in auth.get_backends():
-        if not hasattr(backend, 'has_perm'):
-            continue
-        try:
-            if backend.has_perm(user, perm, obj):
-                return True
-        except PermissionDenied:
-            return False
-    return False
+# TODO: @pcassandra@
+# def _user_has_perm(user, perm, obj):
+#     """
+#     A backend can raise `PermissionDenied` to short-circuit permission checking.
+#     """
+#     for backend in auth.get_backends():
+#         if not hasattr(backend, 'has_perm'):
+#             continue
+#         try:
+#             if backend.has_perm(user, perm, obj):
+#                 return True
+#         except PermissionDenied:
+#             return False
+#     return False
 
 
-def _user_has_module_perms(user, app_label):
-    """
-    A backend can raise `PermissionDenied` to short-circuit permission checking.
-    """
-    for backend in auth.get_backends():
-        if not hasattr(backend, 'has_module_perms'):
-            continue
-        try:
-            if backend.has_module_perms(user, app_label):
-                return True
-        except PermissionDenied:
-            return False
-    return False
+# TODO: @pcassandra@
+# def _user_has_module_perms(user, app_label):
+#     """
+#     A backend can raise `PermissionDenied` to short-circuit permission checking.
+#     """
+#     for backend in auth.get_backends():
+#         if not hasattr(backend, 'has_module_perms'):
+#             continue
+#         try:
+#             if backend.has_module_perms(user, app_label):
+#                 return True
+#         except PermissionDenied:
+#             return False
+#     return False
 
 
-class PermissionsMixin(models.Model):
+class PermissionsMixin(cassandra_models.Model):
     """
     A mixin class that adds the fields and methods necessary to support
     Django's Group and Permission model using the ModelBackend.
     """
-    is_superuser = models.BooleanField(_('superuser status'), default=False,
-        help_text=_('Designates that this user has all permissions without '
-                    'explicitly assigning them.'))
-    groups = models.ManyToManyField(Group, verbose_name=_('groups'),
-        blank=True, help_text=_('The groups this user belongs to. A user will '
-                                'get all permissions granted to each of '
-                                'their groups.'),
-        related_name="user_set", related_query_name="user")
-    user_permissions = models.ManyToManyField(Permission,
-        verbose_name=_('user permissions'), blank=True,
-        help_text=_('Specific permissions for this user.'),
-        related_name="user_set", related_query_name="user")
 
-    class Meta:
-        abstract = True
+    __abstract__ = True   # cqlengine
+
+    # is_superuser = models.BooleanField(_('superuser status'), default=False,
+    #     help_text=_('Designates that this user has all permissions without '
+    #                 'explicitly assigning them.'))
+    is_superuser = cassandra_columns.Boolean(default=False)
+
+    # groups = models.ManyToManyField(Group, verbose_name=_('groups'),
+    #     blank=True, help_text=_('The groups this user belongs to. A user will '
+    #                             'get all permissions granted to each of '
+    #                             'their groups.'),
+    #     related_name="user_set", related_query_name="user")
+    # FIXME: @pcassandra@ Django implement `groups` with ManyToManyField, NOT Text
+    groups = cassandra_columns.Set(cassandra_columns.Text)
+
+    # user_permissions = models.ManyToManyField(Permission,
+    #     verbose_name=_('user permissions'), blank=True,
+    #     help_text=_('Specific permissions for this user.'),
+    #     related_name="user_set", related_query_name="user")
+    # FIXME: @pcassandra@ Django implement `user_permissions` with ManyToManyField, NOT Text
+    user_permissions = cassandra_columns.Set(cassandra_columns.Text)
+
+    # class Meta:
+    #     abstract = True
 
     def get_group_permissions(self, obj=None):
         """
@@ -327,14 +394,19 @@ class PermissionsMixin(models.Model):
         groups. This method queries all available auth backends. If an object
         is passed in, only permissions matching this object are returned.
         """
-        permissions = set()
-        for backend in auth.get_backends():
-            if hasattr(backend, "get_group_permissions"):
-                permissions.update(backend.get_group_permissions(self, obj))
-        return permissions
+        # permissions = set()
+        # for backend in auth.get_backends():
+        #     if hasattr(backend, "get_group_permissions"):
+        #         permissions.update(backend.get_group_permissions(self, obj))
+        # return permissions
+        # FIXME: @pcassandra@ Django implement `get_group_permissions`
+        return set()
 
     def get_all_permissions(self, obj=None):
-        return _user_get_all_permissions(self, obj)
+        # return _user_get_all_permissions(self, obj)
+
+        # FIXME: @pcassandra@ Django implement `get_all_permissions`
+        return set()
 
     def has_perm(self, perm, obj=None):
         """
@@ -349,8 +421,11 @@ class PermissionsMixin(models.Model):
         if self.is_active and self.is_superuser:
             return True
 
-        # Otherwise we need to check the backends.
-        return _user_has_perm(self, perm, obj)
+        # # Otherwise we need to check the backends.
+        # return _user_has_perm(self, perm, obj)
+
+        # FIXME: @pcassandra@ Django implement `get_all_permissions`
+        return False
 
     def has_perms(self, perm_list, obj=None):
         """
@@ -372,7 +447,10 @@ class PermissionsMixin(models.Model):
         if self.is_active and self.is_superuser:
             return True
 
-        return _user_has_module_perms(self, app_label)
+        # return _user_has_module_perms(self, app_label)
+
+        # FIXME: @pcassandra@ Django implement `has_module_perms`
+        return False
 
 
 class AbstractUser(AbstractBaseUser, PermissionsMixin):
@@ -382,38 +460,64 @@ class AbstractUser(AbstractBaseUser, PermissionsMixin):
 
     Username, password and email are required. Other fields are optional.
     """
-    username = models.CharField(_('username'), max_length=30, unique=True,
-        help_text=_('Required. 30 characters or fewer. Letters, digits and '
-                    '@/./+/-/_ only.'),
-        validators=[
-            validators.RegexValidator(r'^[\w.@+-]+$',
-                                      _('Enter a valid username. '
-                                        'This value may contain only letters, numbers '
-                                        'and @/./+/-/_ characters.'), 'invalid'),
-        ],
-        error_messages={
-            'unique': _("A user with that username already exists."),
-        })
-    first_name = models.CharField(_('first name'), max_length=30, blank=True)
-    last_name = models.CharField(_('last name'), max_length=30, blank=True)
-    email = models.EmailField(_('email address'), blank=True)
-    is_staff = models.BooleanField(_('staff status'), default=False,
-        help_text=_('Designates whether the user can log into this admin '
-                    'site.'))
-    is_active = models.BooleanField(_('active'), default=True,
-        help_text=_('Designates whether this user should be treated as '
-                    'active. Unselect this instead of deleting accounts.'))
-    date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
 
-    objects = UserManager()
+    __abstract__ = True   # cqlengine
+    _if_not_exists = True  # cqlengine: required to ensure unique usernames
+
+    # username = models.CharField(_('username'), max_length=30, unique=True,
+    #     help_text=_('Required. 30 characters or fewer. Letters, digits and '
+    #                 '@/./+/-/_ only.'),
+    #     validators=[
+    #         validators.RegexValidator(r'^[\w.@+-]+$',
+    #                                   _('Enter a valid username. '
+    #                                     'This value may contain only letters, numbers '
+    #                                     'and @/./+/-/_ characters.'), 'invalid'),
+    #     ],
+    #     error_messages={
+    #         'unique': _("A user with that username already exists."),
+    #     })
+    # FIXME: @pcassandra@ validate characters used in username
+    # FIXME: @pcassandra@ validate uniqueness
+    username = cassandra_columns.Text(
+        min_length=4,
+        max_length=30,
+        primary_key=True,
+    )
+
+    # first_name = models.CharField(_('first name'), max_length=30, blank=True)
+    first_name = cassandra_columns.Text(max_length=100)
+
+    # last_name = models.CharField(_('last name'), max_length=30, blank=True)
+    last_name = cassandra_columns.Text(max_length=100)
+
+    # email = models.EmailField(_('email address'), blank=True)
+    # FIXME: @pcassandra@ validate email
+    email = cassandra_columns.Text()
+
+    # is_staff = models.BooleanField(_('staff status'), default=False,
+    #     help_text=_('Designates whether the user can log into this admin '
+    #                 'site.'))
+    is_staff = cassandra_columns.Boolean(default=False)
+
+    # is_active = models.BooleanField(_('active'), default=True,
+    #     help_text=_('Designates whether this user should be treated as '
+    #                 'active. Unselect this instead of deleting accounts.'))
+    is_active = cassandra_columns.Boolean(default=True)
+
+    # date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
+
+    # FIXME: @pcassandra@: `timezone.now` is exactly the same with cqlengine?
+    date_joined = cassandra_columns.DateTime(default=timezone.now)
+
+    # objects = UserManager()
 
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email']
 
-    class Meta:
-        verbose_name = _('user')
-        verbose_name_plural = _('users')
-        abstract = True
+    # class Meta:
+    #     verbose_name = _('user')
+    #     verbose_name_plural = _('users')
+    #     abstract = True
 
     def get_full_name(self):
         """
@@ -440,79 +544,85 @@ class User(AbstractUser):
 
     Username, password and email are required. Other fields are optional.
     """
-    class Meta(AbstractUser.Meta):
-        swappable = 'AUTH_USER_MODEL'
+    # class Meta(AbstractUser.Meta):
+    #     swappable = 'AUTH_USER_MODEL'
 
 
-@python_2_unicode_compatible
-class AnonymousUser(object):
-    id = None
-    pk = None
-    username = ''
-    is_staff = False
-    is_active = False
-    is_superuser = False
-    _groups = EmptyManager(Group)
-    _user_permissions = EmptyManager(Permission)
+CassandraAbstractUser = User
 
-    def __init__(self):
-        pass
+CassandraUser = User
 
-    def __str__(self):
-        return 'AnonymousUser'
 
-    def __eq__(self, other):
-        return isinstance(other, self.__class__)
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __hash__(self):
-        return 1  # instances always return the same hash value
-
-    def save(self):
-        raise NotImplementedError("Django doesn't provide a DB representation for AnonymousUser.")
-
-    def delete(self):
-        raise NotImplementedError("Django doesn't provide a DB representation for AnonymousUser.")
-
-    def set_password(self, raw_password):
-        raise NotImplementedError("Django doesn't provide a DB representation for AnonymousUser.")
-
-    def check_password(self, raw_password):
-        raise NotImplementedError("Django doesn't provide a DB representation for AnonymousUser.")
-
-    def _get_groups(self):
-        return self._groups
-    groups = property(_get_groups)
-
-    def _get_user_permissions(self):
-        return self._user_permissions
-    user_permissions = property(_get_user_permissions)
-
-    def get_group_permissions(self, obj=None):
-        return set()
-
-    def get_all_permissions(self, obj=None):
-        return _user_get_all_permissions(self, obj=obj)
-
-    def has_perm(self, perm, obj=None):
-        return _user_has_perm(self, perm, obj=obj)
-
-    def has_perms(self, perm_list, obj=None):
-        for perm in perm_list:
-            if not self.has_perm(perm, obj):
-                return False
-        return True
-
-    def has_module_perms(self, module):
-        return _user_has_module_perms(self, module)
-
-    def is_anonymous(self):
-        return True
-
-    def is_authenticated(self):
-        return False
-
-    def get_username(self):
-        return self.username
+# TODO: @pcassandra@
+# @python_2_unicode_compatible
+# class AnonymousUser(object):
+#     id = None
+#     pk = None
+#     username = ''
+#     is_staff = False
+#     is_active = False
+#     is_superuser = False
+#     _groups = EmptyManager(Group)
+#     _user_permissions = EmptyManager(Permission)
+#
+#     def __init__(self):
+#         pass
+#
+#     def __str__(self):
+#         return 'AnonymousUser'
+#
+#     def __eq__(self, other):
+#         return isinstance(other, self.__class__)
+#
+#     def __ne__(self, other):
+#         return not self.__eq__(other)
+#
+#     def __hash__(self):
+#         return 1  # instances always return the same hash value
+#
+#     def save(self):
+#         raise NotImplementedError("Django doesn't provide a DB representation for AnonymousUser.")
+#
+#     def delete(self):
+#         raise NotImplementedError("Django doesn't provide a DB representation for AnonymousUser.")
+#
+#     def set_password(self, raw_password):
+#         raise NotImplementedError("Django doesn't provide a DB representation for AnonymousUser.")
+#
+#     def check_password(self, raw_password):
+#         raise NotImplementedError("Django doesn't provide a DB representation for AnonymousUser.")
+#
+#     def _get_groups(self):
+#         return self._groups
+#     groups = property(_get_groups)
+#
+#     def _get_user_permissions(self):
+#         return self._user_permissions
+#     user_permissions = property(_get_user_permissions)
+#
+#     def get_group_permissions(self, obj=None):
+#         return set()
+#
+#     def get_all_permissions(self, obj=None):
+#         return _user_get_all_permissions(self, obj=obj)
+#
+#     def has_perm(self, perm, obj=None):
+#         return _user_has_perm(self, perm, obj=obj)
+#
+#     def has_perms(self, perm_list, obj=None):
+#         for perm in perm_list:
+#             if not self.has_perm(perm, obj):
+#                 return False
+#         return True
+#
+#     def has_module_perms(self, module):
+#         return _user_has_module_perms(self, module)
+#
+#     def is_anonymous(self):
+#         return True
+#
+#     def is_authenticated(self):
+#         return False
+#
+#     def get_username(self):
+#         return self.username
